@@ -1,0 +1,19 @@
+[package]
+name = "larsen-dev/signal"
+description = "User-written RBXScriptSignal based on known GoodSignal and Signal+ practices. Fast, reliable and perfomance-friendly."
+keywords = ["generic", "event", "fast", "signal", "performance", "optimization", "efficient"]
+version = "0.1.0"
+license = "MIT"
+authors = ["Larsen-dev"]
+registry = "https://github.com/UpliftGames/wally-index"
+realm = "shared"
+repository = "https://github.com/Larsen-dev/signal"
+
+exclude = [
+    "tests",
+    ".github",
+    ".gitignore",
+    "README.md",
+]
+
+[dependencies]
