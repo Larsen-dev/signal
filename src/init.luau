@@ -108,6 +108,7 @@ signal.__index = signal._prototype
 type SignalPrototype<Args...> = {
 	Fire: (self: SignalPrototype<Args...>, Args...) -> (),
 	Connect: (self: SignalPrototype<Args...>, callback: (Args...) -> ()) -> Connection<Args...>,
+	Once: (self: SignalPrototype<Args...>, callback: (Args...) -> ()) -> Connection<Args...>,
 	Wait: (self: SignalPrototype<Args...>) -> Args...,
 	DisconnectAll: (self: SignalPrototype<Args...>) -> (),
 	Destroy: (self: SignalPrototype<Args...>) -> (),
