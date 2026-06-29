@@ -1,0 +1,25 @@
+# Aftman
+.aftman/
+
+# Wally
+Packages/
+Wally.lock
+
+# Rojo
+*.rbxl
+*.rbxlx
+*.rbxm
+*.rbxmx
+
+# Project place file
+/signal.rbxlx
+
+# Roblox Studio lock files
+/*.rbxlx.lock
+/*.rbxl.lock
+
+sourcemap.json
+
+# Editor's
+.vscode/
+.idea/
