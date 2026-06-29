@@ -102,8 +102,8 @@ end
 
 -- Signal
 local signal = {}
-signal.__prototype = {}
-signal.__index = signal.__prototype
+signal._prototype = {}
+signal.__index = signal._prototype
 
 type SignalPrototype<Args...> = {
 	Fire: (self: SignalPrototype<Args...>, Args...) -> (),
@@ -119,7 +119,7 @@ type SignalData<Args...> = {
 
 export type Signal<Args...> = setmetatable<SignalData<Args...>, { __index: SignalPrototype<Args...> }>
 
-function signal.__prototype:Fire(...)
+function signal._prototype:Fire(...)
 	local node = self._head
 
 	while node do
@@ -129,7 +129,7 @@ function signal.__prototype:Fire(...)
 	end
 end
 
-function signal.__prototype:Connect<Args...>(callback: (Args...) -> ()): Connection<Args...>
+function signal._prototype:Connect<Args...>(callback: (Args...) -> ()): Connection<Args...>
 	local newConnection = connection.new(self, callback)
 	local head = self._head
 
@@ -141,7 +141,23 @@ function signal.__prototype:Connect<Args...>(callback: (Args...) -> ()): Connect
 	return newConnection
 end
 
-function signal.__prototype:Wait<Args...>(): Args...
+function signal._prototype:Once<Args...>(callback: (Args...) -> ()): Connection<Args...>
+	local newConnection
+	newConnection = connection.new(self, function(...: Args...)
+		newConnection:Disconnect()
+		callback(...)
+	end)
+	local head = self._head
+
+	if head then
+		head._next = newConnection
+	end
+	self._head = newConnection
+
+	return newConnection
+end
+
+function signal._prototype:Wait<Args...>(): Args...
 	local freeThread = acquireRunner()
 
 	local conn
@@ -153,7 +169,7 @@ function signal.__prototype:Wait<Args...>(): Args...
 	return coroutine.yield()
 end
 
-function signal.__prototype:DisconnectAll()
+function signal._prototype:DisconnectAll()
 	local node = self._head
 
 	while node do
@@ -171,7 +187,7 @@ function signal.__prototype:DisconnectAll()
 	self._head = nil
 end
 
-function signal.__prototype:Destroy()
+function signal._prototype:Destroy()
 	self:DisconnectAll()
 	setmetatable(self, nil)
 end

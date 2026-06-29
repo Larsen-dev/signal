@@ -1,10 +1,10 @@
 return function()
 	local signal = require(script.Parent)
 
-	local newSignal: signal.Signal<...number>
+	local newSignal: signal.Signal<...number | { number }>
 
 	beforeEach(function()
-		newSignal = signal.new() :: signal.Signal<...number>
+		newSignal = signal.new() :: signal.Signal<...number | { number }>
 	end)
 
 	afterEach(function()
