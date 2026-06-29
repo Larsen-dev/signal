@@ -5,7 +5,7 @@ Fast generic-typed Signal implementation for Luau written based on known practic
 ## Installation
 
 ```toml
-signal = "larsen-dev/signal@0.1.0"
+signal = "larsen-dev/signal@0.2.0"
 ```
 
 ## Usage
