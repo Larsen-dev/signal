@@ -12,6 +12,12 @@ local MAX_RUNNERS = 8
 
 -- Functions
 
+--[=[
+	@return thread;
+
+	Acquires unused threads which could be reused or creates new one if there's no such and stores another running into
+	threadPool.
+]=]
 local function acquireRunner(): thread
 	local amount = #threadPool
 
@@ -58,6 +64,11 @@ type ConnectionData<Args...> = {
 
 export type Connection<Args...> = setmetatable<ConnectionData<Args...>, { __index: ConnectionPrototype<Args...> }>
 
+--[=[
+	@return ;
+
+	Disconnects connection.
+]=]
 function connection.__prototype:Disconnect()
 	if not self.Connected then
 		return
@@ -87,6 +98,13 @@ function connection.__prototype:Disconnect()
 	self._next = nil
 end
 
+--[=[
+	@param signal Signal<Args...>;
+	@param callback (Args...) -> ();
+	@return Connection<Args...>;
+
+	Creates new Connection metatable.
+]=]
 function connection.new<Args...>(signal: Signal<Args...>, callback: (Args...) -> ()): Connection<Args...>
 	local previous = signal._head
 
@@ -120,6 +138,12 @@ type SignalData<Args...> = {
 
 export type Signal<Args...> = setmetatable<SignalData<Args...>, { __index: SignalPrototype<Args...> }>
 
+--[=[
+	@param ... Args...;
+	@return ;
+
+	Fires all connections' callbacks.
+]=]
 function signal._prototype:Fire(...)
 	local node = self._head
 
@@ -130,6 +154,12 @@ function signal._prototype:Fire(...)
 	end
 end
 
+--[=[
+	@param callback (Args...) -> ();
+	@return Connection<Args...>;
+
+	Creates Connection metatable with passed callback linked to Signal.
+]=]
 function signal._prototype:Connect<Args...>(callback: (Args...) -> ()): Connection<Args...>
 	local newConnection = connection.new(self, callback)
 	local head = self._head
@@ -142,6 +172,13 @@ function signal._prototype:Connect<Args...>(callback: (Args...) -> ()): Connecti
 	return newConnection
 end
 
+--[=[
+	@param callback (Args...) -> ();
+	@return Connection<Args...>;
+
+	Creates Connection metatable with passed callback linked to Signal. Disconnects itself after first :Fire()
+	method been called.
+]=]
 function signal._prototype:Once<Args...>(callback: (Args...) -> ()): Connection<Args...>
 	local newConnection
 	newConnection = connection.new(self, function(...: Args...)
@@ -158,6 +195,11 @@ function signal._prototype:Once<Args...>(callback: (Args...) -> ()): Connection<
 	return newConnection
 end
 
+--[=[
+	@return Args...;
+
+	Returnes arguments passed through :Fire() method. Yields current thread until fire.
+]=]
 function signal._prototype:Wait<Args...>(): Args...
 	local freeThread = acquireRunner()
 
@@ -170,6 +212,11 @@ function signal._prototype:Wait<Args...>(): Args...
 	return coroutine.yield()
 end
 
+--[=[
+	@return ;
+
+	Disconnects all connections linked to Signal;
+]=]
 function signal._prototype:DisconnectAll()
 	local node = self._head
 
@@ -188,11 +235,22 @@ function signal._prototype:DisconnectAll()
 	self._head = nil
 end
 
+--[=[
+	@return ;
+
+	Unsets metatable, cleaning all links to Signal and disconnects all connections, so
+	GC could collect all of them.
+]=]
 function signal._prototype:Destroy()
 	self:DisconnectAll()
 	setmetatable(self, nil)
 end
 
+--[=[
+	@return Signal<Args...>;
+
+	Creates new Signal metatable;
+]=]
 function signal.new<Args...>(): Signal<Args...>
 	return setmetatable({
 		_head = nil :: Connection<Args...>?,
