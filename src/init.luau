@@ -8,7 +8,7 @@ local tableUnpack = table.unpack
 local tablePack = table.pack
 local threadPool = {} :: { thread }
 
-local MAX_RUNNERS = 8
+local MAX_RUNNERS = 32
 
 -- Functions
 
@@ -46,8 +46,8 @@ end
 
 -- Connection
 local connection = {}
-connection.__prototype = {}
-connection.__index = connection.__prototype
+connection._prototype = {}
+connection.__index = connection._prototype
 
 type ConnectionPrototype<Args...> = {
 	Disconnect: (self: Connection<Args...>) -> (),
@@ -69,7 +69,7 @@ export type Connection<Args...> = setmetatable<ConnectionData<Args...>, { __inde
 
 	Disconnects connection.
 ]=]
-function connection.__prototype:Disconnect()
+function connection._prototype:Disconnect()
 	if not self.Connected then
 		return
 	end
@@ -146,12 +146,27 @@ export type Signal<Args...> = setmetatable<SignalData<Args...>, { __index: Signa
 ]=]
 function signal._prototype:Fire(...)
 	local node = self._head
+	local args = tablePack(...)
 
 	while node do
-		taskSpawn(acquireRunner(), node._callback, tablePack(...))
+		taskSpawn(acquireRunner(), node._callback, args)
 
 		node = node._previous
 	end
+end
+
+--[=[
+	@param ... Args...;
+	@return ;
+
+	Fires all connections' callbacks at the end of resumption cycle.
+]=]
+function signal._prototype:FireDeferred(...)
+	local args = tablePack(...)
+
+	task.defer(function()
+		self:Fire(table.unpack(args, 1, args.n))
+	end)
 end
 
 --[=[
@@ -176,8 +191,8 @@ end
 	@param callback (Args...) -> ();
 	@return Connection<Args...>;
 
-	Creates Connection metatable with passed callback linked to Signal. Disconnects itself after first :Fire()
-	method been called.
+	Connects the callback and returns a Connection that automatically 
+	disconnects itself after the first time the signal is fired.
 ]=]
 function signal._prototype:Once<Args...>(callback: (Args...) -> ()): Connection<Args...>
 	local newConnection
@@ -198,10 +213,10 @@ end
 --[=[
 	@return Args...;
 
-	Returnes arguments passed through :Fire() method. Yields current thread until fire.
+	Returns arguments passed through :Fire() method. Yields current thread until fire.
 ]=]
 function signal._prototype:Wait<Args...>(): Args...
-	local freeThread = acquireRunner()
+	local freeThread = coroutine.running()
 
 	local conn
 	conn = self:Connect(function(...)
