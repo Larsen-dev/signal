@@ -62,7 +62,10 @@ type ConnectionData<Args...> = {
 	Connected: boolean,
 }
 
-export type Connection<Args...> = setmetatable<ConnectionData<Args...>, { __index: ConnectionPrototype<Args...> }>
+export type Connection<Args...> = typeof(setmetatable(
+	{} :: ConnectionData<Args...>,
+	{ __index = {} :: ConnectionPrototype<Args...> }
+))
 
 --[=[
 	@return ;
@@ -136,7 +139,10 @@ type SignalData<Args...> = {
 	_head: Connection<Args...>?,
 }
 
-export type Signal<Args...> = setmetatable<SignalData<Args...>, { __index: SignalPrototype<Args...> }>
+export type Signal<Args...> = typeof(setmetatable(
+	{} :: SignalData<Args...>,
+	{ __index = {} :: SignalPrototype<Args...> }
+))
 
 --[=[
 	@param ... Args...;
