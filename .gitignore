@@ -13,7 +13,7 @@ wally.lock
 
 # Project place file
 /signal.rbxlx
-/signal_wally
+/publish
 
 # Roblox Studio lock files
 /*.rbxlx.lock
