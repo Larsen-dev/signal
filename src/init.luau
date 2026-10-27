@@ -10,6 +10,40 @@ local threadPool = {} :: { thread }
 
 local MAX_RUNNERS = 32
 
+-- Types
+-- Signal type
+type signalData<callback = () -> (), Args... = ...any> = {
+	_head: Connection<callback, Args...>?,
+}
+
+type signalPrototype<callback = () -> (), Args... = ...any> = {
+	Fire: (self: Signal<callback, Args...>, Args...) -> (),
+	FireDeferred: (self: Signal<callback, Args...>, Args...) -> (),
+	Connect: (self: Signal<callback, Args...>, callback: callback) -> Connection<callback, Args...>,
+	Once: (self: Signal<callback, Args...>, callback: callback) -> Connection<callback, Args...>,
+	Wait: (self: Signal<callback, Args...>) -> Args...,
+	DisconnectAll: (self: Signal<callback, Args...>) -> (),
+	Destroy: (self: Signal<callback, Args...>) -> (),
+}
+
+export type Signal<callback = () -> (), Args... = ...any> = setmetatable<signalData<callback, Args...>, {__index: signalPrototype<callback, Args...>}>
+
+-- Connection type
+type connectionData<callback = () -> (), Args... = ...any> = {
+	_signal: Signal<callback, Args...>?,
+	_next: Connection<callback, Args...>?,
+	_previous: Connection<callback, Args...>?,
+	_callback: callback?,
+
+	Connected: boolean,
+}
+
+type connectionPrototype<callback = () -> (), Args... = ...any> = {
+	Disconnect: (self: Connection<callback, Args...>) -> (),
+}
+
+export type Connection<callback = () -> (), Args... = ...any> = setmetatable<connectionData<callback, Args...>, {__index: connectionPrototype<callback, Args...>}>
+
 -- Functions
 
 --[=[
@@ -46,26 +80,8 @@ end
 
 -- Connection
 local connection = {}
-connection._prototype = {}
+connection._prototype = {} :: connectionPrototype<>
 connection.__index = connection._prototype
-
-type ConnectionPrototype<Args...> = {
-	Disconnect: (self: Connection<Args...>) -> (),
-}
-
-type ConnectionData<Args...> = {
-	_signal: Signal<Args...>,
-	_next: Connection<Args...>?,
-	_previous: Connection<Args...>?,
-	_callback: (Args...) -> (),
-
-	Connected: boolean,
-}
-
-export type Connection<Args...> = typeof(setmetatable(
-	{} :: ConnectionData<Args...>,
-	{ __index = {} :: ConnectionPrototype<Args...> }
-))
 
 --[=[
 	@return ;
@@ -102,47 +118,27 @@ function connection._prototype:Disconnect()
 end
 
 --[=[
-	@param signal Signal<Args...>;
-	@param callback (Args...) -> ();
-	@return Connection<Args...>;
+	@param signal Signal<callbackT>;
+	@param callback callbackT;
+	@return Connection<callbackT>;
 
 	Creates new Connection metatable.
 ]=]
-function connection.new<Args...>(signal: Signal<Args...>, callback: (Args...) -> ()): Connection<Args...>
+function connection.new<callbackT>(signal: Signal<callbackT>, callback: callbackT): Connection<callbackT>
 	local previous = signal._head
 
 	return setmetatable({
-		_signal = signal :: Signal<Args...>?,
-		_next = nil :: Connection<Args...>?,
-		_previous = previous :: Connection<Args...>?,
-		_callback = callback :: (Args...) -> (),
-
-		Connected = true,
-	}, connection) :: Connection<Args...>
+		_signal = signal :: Signal<callbackT>?,
+		_next = nil :: Connection<callbackT>?,
+		_previous = nil :: Connection<callbackT>?,
+		_callback = callback :: callbackT?,
+	}, connection) :: Connection<callbackT>
 end
 
 -- Signal
 local signal = {}
-signal._prototype = {}
+signal._prototype = {} :: signalPrototype<>
 signal.__index = signal._prototype
-
-type SignalPrototype<Args...> = {
-	Fire: (self: Signal<Args...>, Args...) -> (),
-	Connect: (self: Signal<Args...>, callback: (Args...) -> ()) -> Connection<Args...>,
-	Once: (self: Signal<Args...>, callback: (Args...) -> ()) -> Connection<Args...>,
-	Wait: (self: Signal<Args...>) -> Args...,
-	DisconnectAll: (self: Signal<Args...>) -> (),
-	Destroy: (self: Signal<Args...>) -> (),
-}
-
-type SignalData<Args...> = {
-	_head: Connection<Args...>?,
-}
-
-export type Signal<Args...> = typeof(setmetatable(
-	{} :: SignalData<Args...>,
-	{ __index = {} :: SignalPrototype<Args...> }
-))
 
 --[=[
 	@param ... Args...;
@@ -176,12 +172,12 @@ function signal._prototype:FireDeferred(...)
 end
 
 --[=[
-	@param callback (Args...) -> ();
-	@return Connection<Args...>;
+	@param callback callbackT;
+	@return Connection<callbackT>;
 
 	Creates Connection metatable with passed callback linked to Signal.
 ]=]
-function signal._prototype:Connect<Args...>(callback: (Args...) -> ()): Connection<Args...>
+function signal._prototype:Connect<callbackT>(callback: callbackT): Connection<callbackT>
 	local newConnection = connection.new(self, callback)
 	local head = self._head
 
@@ -194,24 +190,18 @@ function signal._prototype:Connect<Args...>(callback: (Args...) -> ()): Connecti
 end
 
 --[=[
-	@param callback (Args...) -> ();
-	@return Connection<Args...>;
+	@param callback callbackT;
+	@return Connection<callbackT>;
 
 	Connects the callback and returns a Connection that automatically 
 	disconnects itself after the first time the signal is fired.
 ]=]
-function signal._prototype:Once<Args...>(callback: (Args...) -> ()): Connection<Args...>
-	local newConnection
-	newConnection = connection.new(self, function(...: Args...)
+function signal._prototype:Once<callbackT>(callback: callbackT): Connection<callbackT>
+	local newConnection: Connection<>
+	newConnection = self:Connect(function(...)
 		newConnection:Disconnect()
 		callback(...)
 	end)
-	local head = self._head
-
-	if head then
-		head._next = newConnection
-	end
-	self._head = newConnection
 
 	return newConnection
 end
@@ -221,12 +211,12 @@ end
 
 	Returns arguments passed through :Fire() method. Yields current thread until fire.
 ]=]
-function signal._prototype:Wait<Args...>(): Args...
+function signal._prototype:Wait<callbackT, Args...>(): Args...
 	local freeThread = coroutine.running()
 
-	local conn
-	conn = self:Connect(function(...)
-		conn:Disconnect()
+	local newConnection: Connection<callbackT, Args...>
+	newConnection = self:Connect(function(...)
+		newConnection:Disconnect()
 		taskSpawn(freeThread, ...)
 	end)
 
@@ -268,14 +258,14 @@ function signal._prototype:Destroy()
 end
 
 --[=[
-	@return Signal<Args...>;
+	@return Signal<callbackT>;
 
 	Creates new Signal metatable;
 ]=]
-function signal.new<Args...>(): Signal<Args...>
+function signal.new(): Signal<>
 	return setmetatable({
-		_head = nil :: Connection<Args...>?,
-	}, signal) :: Signal<Args...>
+		_head = nil :: Connection<>?,
+	}, signal) :: Signal<>
 end
 
 return table.freeze(signal)
