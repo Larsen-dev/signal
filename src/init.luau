@@ -1,4 +1,5 @@
 --!strict
+--!optimize 2
 
 -- Values
 local taskSpawn = task.spawn
@@ -12,37 +13,37 @@ local MAX_RUNNERS = 32
 
 -- Types
 -- Signal type
-type signalData<callback = (...any?) -> (), Args... = ...any?> = {
-	_head: Connection<callback, Args...>?,
+type signalData<callback = (...any?) -> (), args... = ...any?> = {
+	_head: Connection<callback, args...>?,
 }
 
-type signalPrototype<callback = (...any?) -> (), Args... = ...any?> = {
-	Fire: (self: Signal<callback, Args...>, Args...) -> (),
-	FireDeferred: (self: Signal<callback, Args...>, Args...) -> (),
-	Connect: (self: Signal<callback, Args...>, callback: callback) -> Connection<callback, Args...>,
-	Once: (self: Signal<callback, Args...>, callback: callback) -> Connection<callback, Args...>,
-	Wait: (self: Signal<callback, Args...>) -> Args...,
-	DisconnectAll: (self: Signal<callback, Args...>) -> (),
-	Destroy: (self: Signal<callback, Args...>) -> (),
+type signalPrototype<callback = (...any?) -> (), args... = ...any?> = {
+	Fire: (self: Signal<callback, args...>, args...) -> (),
+	FireDeferred: (self: Signal<callback, args...>, args...) -> (),
+	Connect: (self: Signal<callback, args...>, callback: callback) -> Connection<callback, args...>,
+	Once: (self: Signal<callback, args...>, callback: callback) -> Connection<callback, args...>,
+	Wait: (self: Signal<callback, args...>) -> args...,
+	DisconnectAll: (self: Signal<callback, args...>) -> (),
+	Destroy: (self: Signal<callback, args...>) -> (),
 }
 
-export type Signal<callback = (...any?) -> (), Args... = ...any?> = setmetatable<signalData<callback, Args...>, {__index: signalPrototype<callback, Args...>}>
+export type Signal<callback = (...any?) -> (), args... = ...any?> = setmetatable<signalData<callback, args...>, {__index: signalPrototype<callback, args...>}>
 
 -- Connection type
-type connectionData<callback = (...any?) -> (), Args... = ...any?> = {
-	_signal: Signal<callback, Args...>?,
-	_next: Connection<callback, Args...>?,
-	_previous: Connection<callback, Args...>?,
+type connectionData<callback = (...any?) -> (), args... = ...any?> = {
+	_signal: Signal<callback, args...>?,
+	_next: Connection<callback, args...>?,
+	_previous: Connection<callback, args...>?,
 	_callback: callback?,
 
 	Connected: boolean,
 }
 
-type connectionPrototype<callback = (...any?) -> (), Args... = ...any?> = {
-	Disconnect: (self: Connection<callback, Args...>) -> (),
+type connectionPrototype<callback = (...any?) -> (), args... = ...any?> = {
+	Disconnect: (self: Connection<callback, args...>) -> (),
 }
 
-export type Connection<callback = (...any?) -> (), Args... = ...any?> = setmetatable<connectionData<callback, Args...>, {__index: connectionPrototype<callback, Args...>}>
+export type Connection<callback = (...any?) -> (), args... = ...any?> = setmetatable<connectionData<callback, args...>, {__index: connectionPrototype<callback, args...>}>
 
 -- Functions
 
@@ -117,23 +118,50 @@ function connection._prototype:Disconnect()
 	self._next = nil
 end
 
+connection.__newindex = function(_, key)
+	if key ~= "_next" and key ~= "_previous"
+	and key ~= "_callback" and key ~= "_signal" then
+		error(string.format("%s is an invalid member of connection", tostring(key)))
+	end
+end
+connection.__metatable = "You're not permitted to get this metatable"
+
 --[=[
-	@param signal Signal<callbackT>;
+	@param signal Signal<callbackT, args...>;
 	@param callback callbackT;
-	@return Connection<callbackT>;
+	@return Connection<callbackT, args...>;
 
 	Creates new Connection metatable.
 ]=]
-function connection.new<callbackT>(signal: Signal<callbackT>, callback: callbackT): Connection<callbackT>
+function connection.new<callbackT, args...>(signal: Signal<callbackT, args...>, callback: callbackT): Connection<callbackT, args...>
 	local previous = signal._head
 
 	return setmetatable({
-		_signal = signal :: Signal<callbackT>?,
-		_next = nil :: Connection<callbackT>?,
-		_previous = previous :: Connection<callbackT>?,
-		_callback = callback :: callbackT?,
-	}, connection) :: Connection<callbackT>
+		_signal = signal,
+		_next = nil,
+		_previous = previous,
+		_callback = callback,
+		Connected = true,
+	} :: connectionData<callbackT, args...>, connection) :: Connection<callbackT, args...>
 end
+
+setmetatable(connection._prototype, {
+	__index = function(_, key)
+		if key ~= "_next" and key ~= "_previous"
+		and key ~= "_callback" and key ~= "_signal" then
+			error(string.format("%s is an invalid member of connection._prototype", tostring(key)))
+		end
+	end,
+
+	__newindex = function(_, key)
+		if key ~= "_next" and key ~= "_previous"
+		and key ~= "_callback" and key ~= "_signal" then
+			error(string.format("%s is an invalid member of connection._prototype", tostring(key)))
+		end
+	end,
+
+	__metatable = "You're not permitted to get this metatable"
+})
 
 -- Signal
 local signal = {}
@@ -141,7 +169,7 @@ signal._prototype = {} :: signalPrototype<>
 signal.__index = signal._prototype
 
 --[=[
-	@param ... Args...;
+	@param ... args...;
 	@return ;
 
 	Fires all connections' callbacks.
@@ -158,7 +186,7 @@ function signal._prototype:Fire(...)
 end
 
 --[=[
-	@param ... Args...;
+	@param ... args...;
 	@return ;
 
 	Fires all connections' callbacks at the end of resumption cycle.
@@ -191,7 +219,7 @@ end
 
 --[=[
 	@param callback callbackT;
-	@return Connection<callbackT>;
+	@return Connection<callbackT, args...>;
 
 	Connects the callback and returns a Connection that automatically 
 	disconnects itself after the first time the signal is fired.
@@ -207,7 +235,7 @@ function signal._prototype:Once<callbackT>(callback: callbackT): Connection<call
 end
 
 --[=[
-	@return Args...;
+	@return args...;
 
 	Returns arguments passed through :Fire() method. Yields current thread until fire.
 ]=]
@@ -257,8 +285,15 @@ function signal._prototype:Destroy()
 	setmetatable(self, nil)
 end
 
+signal.__metatable = "You're not permitted to get this metatable"
+signal.__newindex = function(_, key)
+	if key ~= "_head" then
+		error(string.format("%s is not a valid member of signal", tostring(key)))
+	end
+end
+
 --[=[
-	@return Signal<callbackT>;
+	@return Signal<callbackT, args...>;
 
 	Creates new Signal metatable;
 ]=]
@@ -267,5 +302,21 @@ function signal.new(): Signal<>
 		_head = nil :: Connection<>?,
 	}, signal) :: Signal<>
 end
+
+setmetatable(signal._prototype, {
+	__index = function(_, key)
+		if key ~= "_head" then
+			error(string.format("%s is an invalid member of signal._prototype", tostring(key)))
+		end
+	end,
+
+	__newindex = function(_, key)
+		if key ~= "_head" then
+			error(string.format("%s is an invalid member of signal._prototype", tostring(key)))
+		end
+	end,
+
+	__metatable = "You're not permitted to get this metatable"
+})
 
 return table.freeze(signal)
