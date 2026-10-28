@@ -12,11 +12,11 @@ local MAX_RUNNERS = 32
 
 -- Types
 -- Signal type
-type signalData<callback = () -> (), Args... = ...any> = {
+type signalData<callback = (...any?) -> (), Args... = ...any?> = {
 	_head: Connection<callback, Args...>?,
 }
 
-type signalPrototype<callback = () -> (), Args... = ...any> = {
+type signalPrototype<callback = (...any?) -> (), Args... = ...any?> = {
 	Fire: (self: Signal<callback, Args...>, Args...) -> (),
 	FireDeferred: (self: Signal<callback, Args...>, Args...) -> (),
 	Connect: (self: Signal<callback, Args...>, callback: callback) -> Connection<callback, Args...>,
@@ -26,10 +26,10 @@ type signalPrototype<callback = () -> (), Args... = ...any> = {
 	Destroy: (self: Signal<callback, Args...>) -> (),
 }
 
-export type Signal<callback = () -> (), Args... = ...any> = setmetatable<signalData<callback, Args...>, {__index: signalPrototype<callback, Args...>}>
+export type Signal<callback = (...any?) -> (), Args... = ...any?> = setmetatable<signalData<callback, Args...>, {__index: signalPrototype<callback, Args...>}>
 
 -- Connection type
-type connectionData<callback = () -> (), Args... = ...any> = {
+type connectionData<callback = (...any?) -> (), Args... = ...any?> = {
 	_signal: Signal<callback, Args...>?,
 	_next: Connection<callback, Args...>?,
 	_previous: Connection<callback, Args...>?,
@@ -38,11 +38,11 @@ type connectionData<callback = () -> (), Args... = ...any> = {
 	Connected: boolean,
 }
 
-type connectionPrototype<callback = () -> (), Args... = ...any> = {
+type connectionPrototype<callback = (...any?) -> (), Args... = ...any?> = {
 	Disconnect: (self: Connection<callback, Args...>) -> (),
 }
 
-export type Connection<callback = () -> (), Args... = ...any> = setmetatable<connectionData<callback, Args...>, {__index: connectionPrototype<callback, Args...>}>
+export type Connection<callback = (...any?) -> (), Args... = ...any?> = setmetatable<connectionData<callback, Args...>, {__index: connectionPrototype<callback, Args...>}>
 
 -- Functions
 
@@ -130,7 +130,7 @@ function connection.new<callbackT>(signal: Signal<callbackT>, callback: callback
 	return setmetatable({
 		_signal = signal :: Signal<callbackT>?,
 		_next = nil :: Connection<callbackT>?,
-		_previous = nil :: Connection<callbackT>?,
+		_previous = previous :: Connection<callbackT>?,
 		_callback = callback :: callbackT?,
 	}, connection) :: Connection<callbackT>
 end
@@ -212,7 +212,7 @@ end
 	Returns arguments passed through :Fire() method. Yields current thread until fire.
 ]=]
 function signal._prototype:Wait<callbackT, Args...>(): Args...
-	local freeThread = coroutine.running()
+	local freeThread = acquireRunner()
 
 	local newConnection: Connection<callbackT, Args...>
 	newConnection = self:Connect(function(...)
