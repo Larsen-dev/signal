@@ -118,12 +118,6 @@ function connection._prototype:Disconnect()
 	self._next = nil
 end
 
-connection.__newindex = function(_, key)
-	if key ~= "_next" and key ~= "_previous"
-	and key ~= "_callback" and key ~= "_signal" then
-		error(string.format("%s is an invalid member of connection", tostring(key)))
-	end
-end
 connection.__metatable = "You're not permitted to get this metatable"
 
 --[=[
@@ -286,11 +280,6 @@ function signal._prototype:Destroy()
 end
 
 signal.__metatable = "You're not permitted to get this metatable"
-signal.__newindex = function(_, key)
-	if key ~= "_head" then
-		error(string.format("%s is not a valid member of signal", tostring(key)))
-	end
-end
 
 --[=[
 	@return Signal<callbackT, args...>;
@@ -311,6 +300,7 @@ setmetatable(signal._prototype, {
 	end,
 
 	__newindex = function(_, key)
+		print(key)
 		if key ~= "_head" then
 			error(string.format("%s is an invalid member of signal._prototype", tostring(key)))
 		end

@@ -1,6 +1,6 @@
 # Signal
 
-Fast generic-typed Signal implementation for Luau written based on known practices used in GoodSignal, Sleitnick's Signal and Signal+ implementations. Provides :Fire(), :FireDeferred(), :Connect(), :Once() and :Wait() methods presented in `RBScriptSignal` API, :DisconnectAll() implemented in other realisations and :Disconnect() for Connection variant.
+Fast generic-typed signal implementation for Luau written based on known practices used in GoodSignal, Sleitnick's Signal and Signal+ implementations. Provides :Fire(), :FireDeferred(), :Connect(), :Once() and :Wait() methods presented in `RBScriptSignal` API, :DisconnectAll() implemented in other realisations and :Disconnect() for Connection variant.
 
 ## Installation
 
@@ -15,6 +15,7 @@ Or using .rbxm package at Releases page.
 ```luau
 local signal = require(Packages.signal)
 
+-- Type declaration: Signal<callback: (...any) -> (), args... = ...any>
 type testSignal = signal.Signal<(namedArg0: number, namedArg1: string) -> (), number, string>
 
 local sig = signal.new() :: testSignal
